@@ -47,7 +47,7 @@ final class ParallelWebCrawler implements WebCrawler {
     Set<String> visitedUrls = new ConcurrentSkipListSet<>();
 
     for (String url : startingUrls) {
-      pool.invoke(new CrawlInternalTask(url, deadline, maxDepth, counts, visitedUrls));
+      pool.invoke(new CrawlInternalTask(url, deadline, counts, visitedUrls));
     }
 
     if (counts.isEmpty()) {
@@ -62,7 +62,7 @@ final class ParallelWebCrawler implements WebCrawler {
             .build();
   }
 
-  private class CrawlInternalTask() extends RecursiveAction {
+  private class CrawlInteralTask extends RecursiveAction {
     // TODO: Implement recursive method
   }
 
