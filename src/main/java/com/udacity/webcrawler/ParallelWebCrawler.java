@@ -11,8 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveAction;
 import java.util.stream.Collectors;
 
 /**
@@ -39,7 +41,29 @@ final class ParallelWebCrawler implements WebCrawler {
 
   @Override
   public CrawlResult crawl(List<String> startingUrls) {
-    return new CrawlResult.Builder().build();
+    Instant deadline = clock.instant().plus(timeout);
+
+    Map<String, Integer> counts = new ConcurrentHashMap<>();
+    Set<String> visitedUrls = new ConcurrentSkipListSet<>();
+
+    for (String url : startingUrls) {
+      pool.invoke(new CrawlInternalTask(url, deadline, maxDepth, counts, visitedUrls));
+    }
+
+    if (counts.isEmpty()) {
+      return new CrawlResult.Builder()
+              .setWordCounts(counts)
+              .setUrlsVisited(visitedUrls.size())
+              .build();
+    }
+    return new CrawlResult.Builder()
+            .setWordCounts(WordCounts.sort(counts, popularWordCount))
+            .setUrlsVisited(visitedUrls.size())
+            .build();
+  }
+
+  private class CrawlInternalTask() extends RecursiveAction {
+    // TODO: Implement recursive method
   }
 
   @Override
