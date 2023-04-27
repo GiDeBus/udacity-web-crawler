@@ -5,20 +5,15 @@ import com.udacity.webcrawler.parser.PageParser;
 import com.udacity.webcrawler.parser.PageParserFactory;
 
 import javax.inject.Inject;
-import javax.inject.Provider;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.RecursiveAction;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+
+import static java.util.concurrent.ForkJoinTask.invokeAll;
 
 /**
  * A concrete implementation of {@link WebCrawler} that runs multiple threads on a
@@ -61,7 +56,8 @@ final class ParallelWebCrawler implements WebCrawler {
     Set<String> visitedUrls = new ConcurrentSkipListSet<>();
 
     for (String url : startingUrls) {
-      pool.invoke(new CrawlInternalTask(url, deadline, maxDepth, counts, visitedUrls));
+
+      pool.invoke(new CustomConcurrentTask(url, deadline, maxDepth, counts, visitedUrls));
     }
 
     if (counts.isEmpty()) {
@@ -76,14 +72,18 @@ final class ParallelWebCrawler implements WebCrawler {
             .build();
   }
 
-  private class CrawlInternalTask extends RecursiveAction {
+  @Override
+  public int getMaxParallelism() {
+    return Runtime.getRuntime().availableProcessors();
+  }
+  private class CustomConcurrentTask extends RecursiveTask<Map<String, Integer>> {
     String url;
     Instant deadline;
     int maxDepth;
     Map<String, Integer> counts;
     Set<String> visitedUrls;
 
-    private CrawlInternalTask(
+    private CustomConcurrentTask(
             String url,
             Instant deadline,
             int maxDepth,
@@ -98,35 +98,37 @@ final class ParallelWebCrawler implements WebCrawler {
     }
 
     @Override
-    protected void compute() {
+    protected Map<String, Integer> compute() {
       if (maxDepth == 0 || clock.instant().isAfter(deadline)) {
-        return;
+        return Collections.emptyMap();
       }
       for (Pattern pattern : ignoredUrls) {
         if (pattern.matcher(url).matches()) {
-          return;
+          return Collections.emptyMap();
         }
       }
       if (visitedUrls.contains(url)) {
-        return;
+        return Collections.emptyMap();
       }
       visitedUrls.add(url);
       PageParser.Result result = parserFactory.get(url).parse();
+      Map<String, Integer> localCounts = new HashMap<>();
       for (Map.Entry<String, Integer> e : result.getWordCounts().entrySet()) {
-        if (counts.containsKey(e.getKey())) {
-          counts.put(e.getKey(), e.getValue() + counts.get(e.getKey()));
-        } else {
-          counts.put(e.getKey(), e.getValue());
+        localCounts.merge(e.getKey(), e.getValue(), Integer::sum);
+      }
+      List<CustomConcurrentTask> subTasks = new ArrayList<>();
+      for (String link : result.getLinks()) {
+        subTasks.add(new CustomConcurrentTask(link, deadline, maxDepth - 1, counts, visitedUrls));
+      }
+      invokeAll(subTasks);
+      for (CustomConcurrentTask subTask : subTasks) {
+        Map<String, Integer> subCounts = subTask.join();
+        for (Map.Entry<String, Integer> e : subCounts.entrySet()) {
+          localCounts.merge(e.getKey(), e.getValue(), Integer::sum);
         }
       }
-      for (String link : result.getLinks()) {
-        invokeAll(new CrawlInternalTask(link, deadline, maxDepth - 1, counts, visitedUrls));
-      }
+      return localCounts;
     }
   }
 
-  @Override
-  public int getMaxParallelism() {
-    return Runtime.getRuntime().availableProcessors();
-  }
 }
