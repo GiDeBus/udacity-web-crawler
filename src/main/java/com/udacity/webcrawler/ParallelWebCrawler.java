@@ -53,6 +53,13 @@ final class ParallelWebCrawler implements WebCrawler {
 
   @Override
   public CrawlResult crawl(List<String> startingUrls) {
+    Instant deadline = clock.instant().plus(timeout);
+    ConcurrentHashMap<String, Integer> counts = new ConcurrentHashMap<>();
+    ConcurrentSkipListSet<String> visitedUrls = new ConcurrentSkipListSet<>();
+
+    for (String url : startingUrls) {
+      pool.invoke(new CustomCrawlTask(maxDepth, deadline, url, counts, visitedUrls));
+    }
     return new CrawlResult.Builder().build();
   }
 
@@ -98,10 +105,6 @@ final class ParallelWebCrawler implements WebCrawler {
       }
       visitedUrls.add(url);
       PageParser.Result result = parserFactory.get(url).parse();
-      result.getWordCounts().entrySet()
-              .stream()
-              .forEach(s -> counts.compute(s.getKey(), (key, value) -> (value != null) ? s.getValue() + value : s.getValue()));
-
       List<CustomCrawlTask> customCrawlTask = result.getLinks().stream()
               .map(link -> new CustomCrawlTask(maxDepth - 1, deadline, link, counts, visitedUrls))
               .collect(Collectors.toList());
