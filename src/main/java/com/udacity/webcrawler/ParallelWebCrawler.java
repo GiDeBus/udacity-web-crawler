@@ -60,7 +60,10 @@ final class ParallelWebCrawler implements WebCrawler {
     for (String url : startingUrls) {
       pool.invoke(new CustomCrawlTask(maxDepth, deadline, url, counts, visitedUrls));
     }
-    return new CrawlResult.Builder().build();
+    return new CrawlResult.Builder()
+            .setWordCounts(WordCounts.sort(counts, popularWordCount))
+            .setUrlsVisited(visitedUrls.size())
+            .build();
   }
 
   @Override
@@ -105,6 +108,15 @@ final class ParallelWebCrawler implements WebCrawler {
       }
       visitedUrls.add(url);
       PageParser.Result result = parserFactory.get(url).parse();
+
+      for (Map.Entry<String, Integer> e : result.getWordCounts().entrySet()) {
+        if (counts.containsKey(e.getKey())) {
+          counts.put(e.getKey(), e.getValue() + counts.get(e.getKey()));
+        } else {
+          counts.put(e.getKey(), e.getValue());
+        }
+      }
+
       List<CustomCrawlTask> customCrawlTask = result.getLinks().stream()
               .map(link -> new CustomCrawlTask(maxDepth - 1, deadline, link, counts, visitedUrls))
               .collect(Collectors.toList());
