@@ -65,6 +65,7 @@ final class ProfilerImpl implements Profiler {
 
   @Override
   public void writeData(Writer writer) throws IOException {
+    writer.write(System.lineSeparator());
     writer.write("Run at " + RFC_1123_DATE_TIME.format(startTime));
     writer.write(System.lineSeparator());
     state.write(writer);
