@@ -35,7 +35,7 @@ final class ProfilingMethodInterceptor implements InvocationHandler {
 
     Instant start = clock.instant();
     Object result;
-    boolean isProfiled = method.getAnnotation(Profiled.class) != null;
+    boolean isProfiled = method.isAnnotationPresent(Profiled.class);
 
     try {
       result = method.invoke(delegate, args);

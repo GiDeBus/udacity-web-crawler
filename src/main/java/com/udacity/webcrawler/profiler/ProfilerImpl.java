@@ -33,11 +33,8 @@ final class ProfilerImpl implements Profiler {
   }
 
   private boolean isProfiled(Class<?> klass) {
-    List<Method> methods = Arrays.asList(klass.getDeclaredMethods());
-    if (methods.isEmpty()) {
-      return false;
-    }
-    return methods.stream().anyMatch(x -> x.getAnnotation(Profiled.class) != null);
+    return Arrays.stream(klass.getDeclaredMethods())
+            .anyMatch(method -> method.getAnnotation(Profiled.class) != null);
   }
 
   @Override
