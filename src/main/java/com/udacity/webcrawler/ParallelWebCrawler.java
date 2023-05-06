@@ -108,13 +108,8 @@ final class ParallelWebCrawler implements WebCrawler {
       }
       PageParser.Result result = parserFactory.get(url).parse();
 
-      for (Map.Entry<String, Integer> e : result.getWordCounts().entrySet()) {
-        if (counts.containsKey(e.getKey())) {
-          counts.put(e.getKey(), e.getValue() + counts.get(e.getKey()));
-        } else {
-          counts.put(e.getKey(), e.getValue());
-        }
-      }
+      result.getWordCounts().forEach((key, value) ->
+              counts.merge(key, value, Integer::sum));
 
       List<CustomCrawlTask> customCrawlTask = result.getLinks().stream()
               .map(link -> new CustomCrawlTask(maxDepth - 1, deadline, link, counts, visitedUrls))
