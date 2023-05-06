@@ -14,6 +14,7 @@ import javax.inject.Inject;
 import java.io.BufferedWriter;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -40,12 +41,11 @@ public final class WebCrawlerMain {
     // TODO: Write the crawl results to a JSON file (or System.out if the file name is empty)
     if (!config.getResultPath().isEmpty()) {
       Path outputPath = Path.of(config.getResultPath());
-      resultWriter.write(outputPath);
-    } else {
-      try(Writer writer = new BufferedWriter(new OutputStreamWriter(System.out))) {
+      try (Writer writer = Files.newBufferedWriter(outputPath)) {
         resultWriter.write(writer);
-        writer.flush();
       }
+    } else {
+      resultWriter.write(new OutputStreamWriter(System.out));
     }
 
     // TODO: Write the profile data to a text file (or System.out if the file name is empty)
@@ -55,7 +55,6 @@ public final class WebCrawlerMain {
     } else {
       try(Writer writer = new BufferedWriter(new OutputStreamWriter(System.out))) {
         profiler.writeData(writer);
-        writer.flush();
       }
     }
   }
