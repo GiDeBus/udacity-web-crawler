@@ -48,7 +48,7 @@ final class ProfilingMethodInterceptor implements InvocationHandler {
         throw ex;
       }
     } finally {
-      if (isProfiled) {
+      if (isProfiled || method.getDeclaringClass().equals(Object.class)) {
         Duration duration = Duration.between(start, clock.instant());
         state.record(delegate.getClass(), method, duration);
       }
